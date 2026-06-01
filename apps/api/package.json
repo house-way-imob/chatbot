@@ -3,15 +3,26 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc --outDir dist"
+    "build": "tsc --outDir dist",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate"
   },
   "license": "ISC",
   "dependencies": {
+    "@agencia/shared": "*",
+    "@fastify/sensible": "^6.0.3",
+    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
-    "dotenv": "^16.5.0"
+    "bullmq": "^5.56.4",
+    "dotenv": "^16.5.0",
+    "fastify": "^5.4.0",
+    "groq-sdk": "^0.14.0",
+    "ioredis": "^5.6.1",
+    "pg": "^8.16.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
+    "@types/pg": "^8.15.4",
     "prisma": "^7.8.0",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3"
