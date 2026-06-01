@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -10,4 +5,100 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum EtapaConversa {
+  INICIO
+  COLETANDO_ENDERECO
+  COLETANDO_TAMANHO
+  COLETANDO_TIPO_SERVICO
+  QUALIFICADO
+  ESCOLHENDO_HORARIO
+  CONFIRMADO
+}
+
+enum StatusAgendamento {
+  PENDENTE
+  CONFIRMADO
+  CANCELADO
+  CONCLUIDO
+}
+
+enum TipoServico {
+  FOTO
+  FOTO_VIDEO
+  DRONE
+  FOTO_DRONE
+}
+
+model Fotografo {
+  id           String        @id @default(cuid())
+  nome         String
+  telefone     String        @unique
+  email        String?
+  ativo        Boolean       @default(true)
+  agendamentos Agendamento[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("fotografos")
+}
+
+model Lead {
+  id           String        @id @default(cuid())
+  telefone     String        @unique
+  nome         String?
+  conversa     Conversa?
+  agendamentos Agendamento[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("leads")
+}
+
+model Conversa {
+  id               String        @id @default(cuid())
+  telefone         String        @unique
+  etapa            EtapaConversa @default(INICIO)
+  estado           Json          @default("{}")
+  ultimaMensagemEm DateTime      @default(now())
+  lead             Lead?         @relation(fields: [leadId], references: [id])
+  leadId           String?       @unique
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("conversas")
+}
+
+model Agendamento {
+  id             String            @id @default(cuid())
+  lead           Lead              @relation(fields: [leadId], references: [id])
+  leadId         String
+  fotografo      Fotografo         @relation(fields: [fotografoId], references: [id])
+  fotografoId    String
+  dataHoraInicio DateTime
+  dataHoraFim    DateTime
+  enderecoImovel String
+  lat            Float
+  lng            Float
+  tipoServico    TipoServico
+  status         StatusAgendamento @default(PENDENTE)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@map("agendamentos")
+}
+
+model CacheDeslocamento {
+  id              String   @id @default(cuid())
+  origemLat       Float
+  origemLng       Float
+  destinoLat      Float
+  destinoLng      Float
+  duracaoSegundos Int
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  @@unique([origemLat, origemLng, destinoLat, destinoLng])
+  @@map("cache_deslocamento")
 }

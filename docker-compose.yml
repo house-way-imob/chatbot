@@ -4,11 +4,13 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: agencia_foto
+      # Cria os dois bancos no primeiro start
+      POSTGRES_MULTIPLE_DATABASES: agencia_foto_dev,agencia_foto_prod
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/init.sh
 
   redis:
     image: redis:7-alpine
