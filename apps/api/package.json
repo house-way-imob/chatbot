@@ -2,6 +2,7 @@
   "name": "@agencia/api",
   "version": "1.0.0",
   "scripts": {
+    "predev": "kill-port 3000 || true",
     "dev": "tsx watch src/index.ts",
     "build": "tsc --outDir dist",
     "db:migrate": "prisma migrate dev",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@types/node": "^25.9.1",
     "@types/pg": "^8.15.4",
+    "kill-port": "^2.0.1",
     "prisma": "^7.8.0",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3"
