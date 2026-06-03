@@ -5,6 +5,7 @@ export const customers = pgTable('customers', {
   id: text()
     .primaryKey()
     .$defaultFn(() => randomUUIDv7()),
-  whatsappNumber: text().notNull(),
-  name: text(),
+  phone: text().notNull(),
+  name: text().notNull(),
+  company: text().notNull(),
 })

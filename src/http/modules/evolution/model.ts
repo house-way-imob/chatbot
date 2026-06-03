@@ -59,10 +59,6 @@ export const EvolutionModel = {
   webhookResponse: t.Object({
     success: t.Boolean(),
   }),
-  testMessageBody: t.Object({
-    phone: t.Optional(t.String()),
-    text: t.Optional(t.String()),
-  }),
 }
 
 export type EvolutionWebhookBody = UnwrapSchema<
@@ -71,10 +67,6 @@ export type EvolutionWebhookBody = UnwrapSchema<
 
 export type EvolutionWebhookResponse = UnwrapSchema<
   typeof EvolutionModel.webhookResponse
->
-
-export type EvolutionTestMessageBody = UnwrapSchema<
-  typeof EvolutionModel.testMessageBody
 >
 
 export interface WhatsappSession {

@@ -1,3 +1,4 @@
+import { messagesQueue } from '../../../lib/queue/messages'
 import { redis } from '../../../lib/redis/client'
 import type {
   EvolutionWebhookBody,
@@ -8,39 +9,30 @@ import type {
 
 const SESSION_TTL_SECONDS = 60 * 60
 const MESSAGE_COOLDOWN_MS = 10 * 1000
-const MESSAGE_COOLDOWN_SECONDS = MESSAGE_COOLDOWN_MS / 1000
 
 export async function handleEvolutionWebhook(
   payload: EvolutionWebhookBody,
 ): Promise<EvolutionWebhookResponse> {
-  console.log('Evento recebido')
-  // console.log(payload)
-
   if (payload.data?.key?.fromMe === true) {
     return { success: true }
   }
 
   if (isGroupMessage(payload)) {
-    console.log('Mensagem de grupo ignorada.')
     return { success: true }
   }
 
   const phone = extractPhone(payload)
   if (!phone) {
-    console.log('Nenhum número de celular identificado no evento.')
     return { success: true }
   }
 
   const messageText = extractMessageText(payload)
   if (!messageText) {
-    console.log(
-      `Nenhuma mensagem de texto identificada para o número ${phone}.`,
-    )
     return { success: true }
   }
 
   const sessionKey = `session:${phone}`
-  const session = await upsertWhatsappSession(sessionKey, phone)
+  await upsertWhatsappSession(sessionKey, phone)
 
   const bufferKey = `buffer:${phone}`
   const existingBuffer = await redis.get(bufferKey)
@@ -49,20 +41,7 @@ export async function handleEvolutionWebhook(
     : messageText
   await redis.set(bufferKey, updatedBuffer, 'EX', SESSION_TTL_SECONDS)
 
-  const currentJobId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
-  const lastJobKey = `last_job:${phone}`
-  await redis.set(lastJobKey, currentJobId, 'EX', SESSION_TTL_SECONDS)
-
-  console.log(
-    `Sessão ${session.createdAt === session.updatedAt ? 'criada' : 'renovada'} para ${phone}. Processamento reagendado para ${MESSAGE_COOLDOWN_SECONDS} segundos.`,
-  )
-
-  scheduleMessagesProcessing({
-    phone,
-    bufferKey,
-    lastJobKey,
-    currentJobId,
-  })
+  await scheduleMessagesProcessing(phone)
 
   return { success: true }
 }
@@ -78,6 +57,22 @@ export async function processEvolutionMessages({
   console.log('========================================================\n')
 
   // TODO: implementar o processamento real das mensagens.
+}
+
+export async function processBufferedEvolutionMessages(phone: string) {
+  const bufferKey = `buffer:${phone}`
+  const messages = await redis.get(bufferKey)
+
+  if (!messages) {
+    return
+  }
+
+  await processEvolutionMessages({
+    phone,
+    messages,
+  })
+
+  await redis.del(bufferKey)
 }
 
 function extractPhone(payload: EvolutionWebhookBody) {
@@ -140,45 +135,28 @@ async function upsertWhatsappSession(sessionKey: string, phone: string) {
   return updatedSession
 }
 
-interface ScheduleMessagesProcessingInput {
-  phone: string
-  bufferKey: string
-  lastJobKey: string
-  currentJobId: string
-}
+async function scheduleMessagesProcessing(phone: string) {
+  const jobId = `process:${phone}`
 
-function scheduleMessagesProcessing({
-  phone,
-  bufferKey,
-  lastJobKey,
-  currentJobId,
-}: ScheduleMessagesProcessingInput) {
-  setTimeout(async () => {
-    try {
-      const activeJobId = await redis.get(lastJobKey)
+  const existingJob = await messagesQueue.getJob(jobId)
 
-      if (activeJobId === currentJobId) {
-        const finalMessages = await redis.get(bufferKey)
+  if (existingJob) {
+    await existingJob.remove()
+  }
 
-        if (finalMessages) {
-          await processEvolutionMessages({
-            phone,
-            messages: finalMessages,
-          })
-        }
-
-        await redis.del(bufferKey)
-        await redis.del(lastJobKey)
-      } else {
-        console.log(
-          `Processamento cancelado para o job antigo de ${phone}, pois uma nova mensagem chegou.`,
-        )
-      }
-    } catch (error) {
-      console.error(
-        `Erro ao processar mensagens em background para ${phone}:`,
-        error,
-      )
-    }
-  }, MESSAGE_COOLDOWN_MS)
+  await messagesQueue.add(
+    'process-whatsapp-messages',
+    { phone },
+    {
+      jobId,
+      delay: MESSAGE_COOLDOWN_MS,
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
+      },
+      removeOnComplete: true,
+      removeOnFail: 100,
+    },
+  )
 }

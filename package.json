@@ -4,11 +4,15 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "bun run --watch src/http/app.ts",
+    "worker:messages": "bun run --watch src/workers/messages.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check ."
   },
   "dependencies": {
+    "bullmq": "^5.78.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "elysia": "latest",
