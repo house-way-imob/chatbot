@@ -1,24 +1,96 @@
 services:
+
+  # ─── Banco de dados ────────────────────────────────────────────────────────
   postgres:
+    container_name: postgres
     image: postgres:16-alpine
+    restart: always
+    command: ["postgres", "-c", "max_connections=1000"]
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      # Cria os dois bancos no primeiro start
-      POSTGRES_MULTIPLE_DATABASES: agencia_foto_dev,agencia_foto_prod
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/init.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agencia-net
 
+  # ─── Cache / Filas ─────────────────────────────────────────────────────────
   redis:
+    container_name: redis
     image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes --port 6379
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agencia-net
+
+  # ─── WhatsApp Gateway ──────────────────────────────────────────────────────
+  evolution-api:
+    container_name: evolution_api
+    image: atendai/evolution-api:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_URL: http://localhost:8080
+      LOG_LEVEL: ERROR,WARN,DEBUG,INFO,LOG,VERBOSE,DARK,WEBHOOKS,WEBSOCKET
+      LOG_BAILEYS: debug
+      CORS_ORIGIN: "*"
+      CORS_METHODS: GET,POST,PUT,DELETE
+      CORS_CREDENTIALS: "true"
+      AUTHENTICATION_API_KEY: agencia-evo-dev-key   # trocar em produção
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      DEL_INSTANCE: "false"
+      QRCODE_LIMIT: "30"
+      QRCODE_COLOR: "#175197"
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      # Usa o usuário 'evolution' criado pelo postgres-init.sh
+      DATABASE_CONNECTION_URI: postgresql://evolution:evolution@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_exchange
+      CACHE_REDIS_ENABLED: "true"
+      # DB 6 reservado para a Evolution API — nossa app usa o DB 0 (padrão)
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_SAVE_INSTANCES: "false"
+      CACHE_LOCAL_ENABLED: "false"
+      CONFIG_SESSION_PHONE_CLIENT: Evolution API
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      CONFIG_SESSION_PHONE_VERSION: 136.0.0.0
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agencia-net
+
 
 volumes:
   postgres_data:
   redis_data:
+  evolution_instances:
+
+networks:
+  agencia-net:
+    name: agencia-net
+    driver: bridge
