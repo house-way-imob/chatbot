@@ -1,3 +1,9 @@
+import { eq } from 'drizzle-orm'
+import { initialState, processMessage } from '../../../conversations/machine'
+import type { ConversationState } from '../../../conversations/types'
+import { db } from '../../../db'
+import { conversations } from '../../../db/schema'
+import { sendMessage } from '../../../lib/evolution'
 import { messagesQueue } from '../../../lib/queue/messages'
 import { redis } from '../../../lib/redis/client'
 import type {
@@ -41,7 +47,11 @@ export async function handleEvolutionWebhook(
     : messageText
   await redis.set(bufferKey, updatedBuffer, 'EX', SESSION_TTL_SECONDS)
 
+  console.log(`[service] buffered message for ${phone}: "${messageText}"`)
+
   await scheduleMessagesProcessing(phone)
+
+  console.log(`[service] job scheduled for ${phone}`)
 
   return { success: true }
 }
@@ -50,13 +60,47 @@ export async function processEvolutionMessages({
   phone,
   messages,
 }: ProcessEvolutionMessagesInput) {
-  console.log(
-    `\n=== [TODO] INICIANDO PROCESSAMENTO DE MENSAGENS PARA ${phone} ===`,
-  )
-  console.log(`Mensagens acumuladas:\n${messages}`)
-  console.log('========================================================\n')
+  console.log(`[worker] processing messages for ${phone}:`, messages)
+  // Load or create the conversation record
+  let conversation = await db.query.conversations.findFirst({
+    where: eq(conversations.phone, phone),
+  })
 
-  // TODO: implementar o processamento real das mensagens.
+  if (!conversation) {
+    const [created] = await db
+      .insert(conversations)
+      .values({ phone, state: initialState() })
+      .returning()
+    conversation = created
+  }
+
+  // Process each buffered line sequentially through the state machine,
+  // so rapid multi-message inputs advance the conversation step by step.
+  const lines = messages.split('\n').filter(Boolean)
+  let currentState = conversation.state as ConversationState
+  let lastResponse = ''
+
+  for (const line of lines) {
+    const result = processMessage(currentState, line)
+    currentState = result.newState
+    lastResponse = result.response
+  }
+
+  // Persist the final state
+  await db
+    .update(conversations)
+    .set({
+      state: currentState,
+      step: currentState.step,
+      lastMessageAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(conversations.phone, phone))
+
+  // Send only the last response — one reply per buffered turn
+  if (lastResponse) {
+    await sendMessage(phone, lastResponse)
+  }
 }
 
 export async function processBufferedEvolutionMessages(phone: string) {
@@ -67,18 +111,13 @@ export async function processBufferedEvolutionMessages(phone: string) {
     return
   }
 
-  await processEvolutionMessages({
-    phone,
-    messages,
-  })
-
+  await processEvolutionMessages({ phone, messages })
   await redis.del(bufferKey)
 }
 
 function extractPhone(payload: EvolutionWebhookBody) {
   const phoneJid =
     payload.data?.key?.remoteJid || payload.data?.phone || payload.phone
-
   return phoneJid?.split('@')[0]
 }
 
@@ -106,14 +145,12 @@ async function upsertWhatsappSession(sessionKey: string, phone: string) {
       messageCount: 1,
       status: 'active',
     }
-
     await redis.set(
       sessionKey,
       JSON.stringify(newSession),
       'EX',
       SESSION_TTL_SECONDS,
     )
-
     return newSession
   }
 
@@ -124,26 +161,21 @@ async function upsertWhatsappSession(sessionKey: string, phone: string) {
     messageCount: session.messageCount + 1,
     status: 'active',
   }
-
   await redis.set(
     sessionKey,
     JSON.stringify(updatedSession),
     'EX',
     SESSION_TTL_SECONDS,
   )
-
   return updatedSession
 }
 
 async function scheduleMessagesProcessing(phone: string) {
-  const jobId = `process:${phone}`
-
+  const jobId = `process-${phone}`
   const existingJob = await messagesQueue.getJob(jobId)
-
   if (existingJob) {
     await existingJob.remove()
   }
-
   await messagesQueue.add(
     'process-whatsapp-messages',
     { phone },
@@ -151,10 +183,7 @@ async function scheduleMessagesProcessing(phone: string) {
       jobId,
       delay: MESSAGE_COOLDOWN_MS,
       attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 2000,
-      },
+      backoff: { type: 'exponential', delay: 2000 },
       removeOnComplete: true,
       removeOnFail: 100,
     },
