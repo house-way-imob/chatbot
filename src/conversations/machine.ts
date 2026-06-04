@@ -34,10 +34,10 @@ function handleStart(state: ConversationState): ProcessingResult {
   return {
     newState: { ...state, step: 'COLLECTING_ADDRESS', attempts: 0 },
     response:
-      'Hello! 👋 I am the assistant for the Photo Agency.\n\n' +
-      'I will help you schedule your real estate photography session.\n\n' +
-      "To get started, what is the property's *full address*?\n" +
-      '_(street, number, neighborhood and city)_',
+      'Olá! 👋 Sou o assistente da Agência de Fotos.\n\n' +
+      'Vou te ajudar a agendar sua sessão de fotografia imobiliária.\n\n' +
+      'Para começar, qual é o *endereço completo* do imóvel?\n' +
+      '_(rua, número, bairro e cidade)_',
   }
 }
 
@@ -48,8 +48,8 @@ function handleCollectingAddress(
   if (message.length < 10) {
     return invalidAttempt(
       state,
-      'Please provide the *full address* of the property.\n' +
-        '_(e.g.: 123 Main St, Downtown, São Paulo)_',
+      'Por favor, informe o *endereço completo* do imóvel.\n' +
+        '_(ex: Rua das Flores, 123, Jardins, São Paulo)_',
     )
   }
 
@@ -61,9 +61,9 @@ function handleCollectingAddress(
       attempts: 0,
     },
     response:
-      `✅ Address saved: *${message}*\n\n` +
-      "What is the property's approximate size?\n" +
-      '_(e.g.: 80m², 3 bedrooms, 200m² with outdoor area)_',
+      `✅ Endereço registrado: *${message}*\n\n` +
+      'Qual é o tamanho aproximado do imóvel?\n' +
+      '_(ex: 80m², 3 quartos, 200m² com área externa)_',
   }
 }
 
@@ -74,7 +74,7 @@ function handleCollectingSize(
   if (message.length < 2) {
     return invalidAttempt(
       state,
-      "Please provide the property's size.\n_(e.g.: 80m², 3 bedrooms)_",
+      'Por favor, informe o tamanho do imóvel.\n_(ex: 80m², 3 quartos)_',
     )
   }
 
@@ -86,12 +86,12 @@ function handleCollectingSize(
       attempts: 0,
     },
     response:
-      'What type of service would you like?\n\n' +
-      '1️⃣ *Photos*\n' +
-      '2️⃣ *Photos + Video*\n' +
+      'Qual tipo de serviço você deseja?\n\n' +
+      '1️⃣ *Fotos*\n' +
+      '2️⃣ *Fotos + Vídeo*\n' +
       '3️⃣ *Drone*\n' +
-      '4️⃣ *Photos + Drone*\n\n' +
-      'Reply with the number or service name.',
+      '4️⃣ *Fotos + Drone*\n\n' +
+      'Responda com o número ou o nome do serviço.',
   }
 }
 
@@ -104,8 +104,8 @@ function handleCollectingServiceType(
   if (!serviceType) {
     return invalidAttempt(
       state,
-      "Didn't understand. Please reply with:\n" +
-        '1️⃣ Photos · 2️⃣ Photos + Video · 3️⃣ Drone · 4️⃣ Photos + Drone',
+      'Não entendi. Por favor, responda com:\n' +
+        '1️⃣ Fotos · 2️⃣ Fotos + Vídeo · 3️⃣ Drone · 4️⃣ Fotos + Drone',
     )
   }
 
@@ -114,12 +114,12 @@ function handleCollectingServiceType(
   return {
     newState: { ...state, step: 'QUALIFIED', data, attempts: 0 },
     response:
-      '✅ *Great! Here is a summary of your request:*\n\n' +
-      `📍 Address: ${data.address}\n` +
-      `📐 Size: ${data.size}\n` +
-      `📷 Service: ${serviceTypeLabel(serviceType)}\n\n` +
-      'Our agent will contact you shortly to confirm the appointment. ' +
-      'Feel free to ask if you have any questions! 😊',
+      '✅ *Perfeito! Aqui está o resumo do seu pedido:*\n\n' +
+      `📍 Endereço: ${data.address}\n` +
+      `📐 Tamanho: ${data.size}\n` +
+      `📷 Serviço: ${serviceTypeLabel(serviceType)}\n\n` +
+      'Nosso atendente vai entrar em contato em breve para confirmar o horário. ' +
+      'Se tiver dúvidas, é só perguntar! 😊',
   }
 }
 
@@ -127,16 +127,16 @@ function handleQualified(state: ConversationState): ProcessingResult {
   return {
     newState: { ...state, step: 'CONFIRMED' },
     response:
-      'Your details are already with our agent. ' +
-      'They will contact you soon to confirm the best time! 📅',
+      'Seus dados já estão com nosso atendente. ' +
+      'Em breve ele entrará em contato para confirmar o melhor horário! 📅',
   }
 }
 
 function handleChoosingSlot(state: ConversationState): ProcessingResult {
-  // Placeholder — implemented in Phase 2 with the slot engine
+  // Placeholder — implementado na Fase 2 com o motor de slots
   return {
     newState: state,
-    response: 'This feature will be available soon.',
+    response: 'Esta funcionalidade estará disponível em breve.',
   }
 }
 
@@ -144,9 +144,9 @@ function handleConfirmed(state: ConversationState): ProcessingResult {
   return {
     newState: state,
     response:
-      'Your details are already with our agent. ' +
-      'You will receive the appointment confirmation shortly! 📅\n\n' +
-      'Let us know if you need anything else.',
+      'Seus dados já estão registrados com nosso atendente. ' +
+      'Em breve você receberá a confirmação do horário! 📅\n\n' +
+      'Se precisar de mais alguma coisa, estamos à disposição.',
   }
 }
 
@@ -160,9 +160,9 @@ function invalidAttempt(
     return {
       newState: { ...state, attempts },
       response:
-        "Seems like I'm having trouble understanding. 😅 " +
-        'I will connect you with a human agent right away! ' +
-        'Please wait a moment.',
+        'Parece que estou com dificuldade em entender. 😅 ' +
+        'Vou chamar um atendente humano para te ajudar! ' +
+        'Aguarde um momento.',
     }
   }
 
@@ -178,7 +178,7 @@ function parseServiceType(message: string): ServiceType | null {
   if (m === '4') return 'PHOTOS_DRONE'
 
   const hasDrone = m.includes('drone')
-  const hasPhoto = m.includes('photo') || m.includes('foto')
+  const hasPhoto = m.includes('foto') || m.includes('photo')
   const hasVideo = m.includes('video') || m.includes('vídeo')
 
   if (hasVideo) return 'PHOTOS_VIDEO'
@@ -191,10 +191,10 @@ function parseServiceType(message: string): ServiceType | null {
 
 function serviceTypeLabel(type: ServiceType): string {
   const labels: Record<ServiceType, string> = {
-    PHOTOS: 'Photos',
-    PHOTOS_VIDEO: 'Photos + Video',
+    PHOTOS: 'Fotos',
+    PHOTOS_VIDEO: 'Fotos + Vídeo',
     DRONE: 'Drone',
-    PHOTOS_DRONE: 'Photos + Drone',
+    PHOTOS_DRONE: 'Fotos + Drone',
   }
   return labels[type]
 }

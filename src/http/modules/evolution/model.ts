@@ -70,7 +70,7 @@ export type EvolutionWebhookResponse = UnwrapSchema<
 >
 
 export interface WhatsappSession {
-  phone: string
+  jid: string
   createdAt: string
   updatedAt: string
   messageCount: number
@@ -78,6 +78,6 @@ export interface WhatsappSession {
 }
 
 export interface ProcessEvolutionMessagesInput {
-  phone: string
+  jid: string
   messages: string
 }

@@ -7,7 +7,7 @@ import { leads } from './leads'
 // state: free JSON — everything the bot needs to remember between turns
 export const conversations = pgTable('conversations', {
   id: text().primaryKey().$defaultFn(() => randomUUID()),
-  phone: text().notNull().unique(),
+  jid: text().notNull().unique(),
   step: text().notNull().default('START'),
   state: jsonb().notNull().default({}),
   lastMessageAt: timestamp().notNull().defaultNow(),

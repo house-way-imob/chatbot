@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { initialState, processMessage } from '../../../conversations/machine'
 import type { ConversationState } from '../../../conversations/types'
 import { db } from '../../../db'
-import { conversations } from '../../../db/schema'
+import { conversations, leads } from '../../../db/schema'
 import { sendMessage } from '../../../lib/evolution'
 import { messagesQueue } from '../../../lib/queue/messages'
 import { redis } from '../../../lib/redis/client'
@@ -27,8 +27,8 @@ export async function handleEvolutionWebhook(
     return { success: true }
   }
 
-  const phone = extractPhone(payload)
-  if (!phone) {
+  const jid = extractJid(payload)
+  if (!jid) {
     return { success: true }
   }
 
@@ -37,45 +37,43 @@ export async function handleEvolutionWebhook(
     return { success: true }
   }
 
-  const sessionKey = `session:${phone}`
-  await upsertWhatsappSession(sessionKey, phone)
+  const sessionKey = `session:${jid}`
+  await upsertWhatsappSession(sessionKey, jid)
 
-  const bufferKey = `buffer:${phone}`
+  const bufferKey = `buffer:${jid}`
   const existingBuffer = await redis.get(bufferKey)
   const updatedBuffer = existingBuffer
     ? `${existingBuffer}\n${messageText}`
     : messageText
   await redis.set(bufferKey, updatedBuffer, 'EX', SESSION_TTL_SECONDS)
 
-  console.log(`[service] buffered message for ${phone}: "${messageText}"`)
+  console.log(`[service] buffered message for ${jid}: "${messageText}"`)
 
-  await scheduleMessagesProcessing(phone)
+  await scheduleMessagesProcessing(jid)
 
-  console.log(`[service] job scheduled for ${phone}`)
+  console.log(`[service] job scheduled for ${jid}`)
 
   return { success: true }
 }
 
 export async function processEvolutionMessages({
-  phone,
+  jid,
   messages,
 }: ProcessEvolutionMessagesInput) {
-  console.log(`[worker] processing messages for ${phone}:`, messages)
-  // Load or create the conversation record
+  console.log(`[worker] processing messages for ${jid}:`, messages)
+
   let conversation = await db.query.conversations.findFirst({
-    where: eq(conversations.phone, phone),
+    where: eq(conversations.jid, jid),
   })
 
   if (!conversation) {
     const [created] = await db
       .insert(conversations)
-      .values({ phone, state: initialState() })
+      .values({ jid, state: initialState() })
       .returning()
     conversation = created
   }
 
-  // Process each buffered line sequentially through the state machine,
-  // so rapid multi-message inputs advance the conversation step by step.
   const lines = messages.split('\n').filter(Boolean)
   let currentState = conversation.state as ConversationState
   let lastResponse = ''
@@ -86,7 +84,8 @@ export async function processEvolutionMessages({
     lastResponse = result.response
   }
 
-  // Persist the final state
+  const leadId = await upsertLeadIfQualified(jid, currentState, conversation.leadId ?? undefined)
+
   await db
     .update(conversations)
     .set({
@@ -94,31 +93,35 @@ export async function processEvolutionMessages({
       step: currentState.step,
       lastMessageAt: new Date(),
       updatedAt: new Date(),
+      ...(leadId ? { leadId } : {}),
     })
-    .where(eq(conversations.phone, phone))
+    .where(eq(conversations.jid, jid))
 
-  // Send only the last response — one reply per buffered turn
   if (lastResponse) {
-    await sendMessage(phone, lastResponse)
+    console.log(`[worker] sending response to ${jid}: "${lastResponse.slice(0, 60)}..."`)
+    try {
+      await sendMessage(jid, lastResponse)
+      console.log(`[worker] response sent successfully to ${jid}`)
+    } catch (err) {
+      console.error(`[worker] failed to send to ${jid}:`, err instanceof Error ? err.message : err)
+    }
   }
 }
 
-export async function processBufferedEvolutionMessages(phone: string) {
-  const bufferKey = `buffer:${phone}`
+export async function processBufferedEvolutionMessages(jid: string) {
+  const bufferKey = `buffer:${jid}`
   const messages = await redis.get(bufferKey)
 
   if (!messages) {
     return
   }
 
-  await processEvolutionMessages({ phone, messages })
+  await processEvolutionMessages({ jid, messages })
   await redis.del(bufferKey)
 }
 
-function extractPhone(payload: EvolutionWebhookBody) {
-  const phoneJid =
-    payload.data?.key?.remoteJid || payload.data?.phone || payload.phone
-  return phoneJid?.split('@')[0]
+function extractJid(payload: EvolutionWebhookBody): string | undefined {
+  return payload.data?.key?.remoteJid ?? undefined
 }
 
 function isGroupMessage(payload: EvolutionWebhookBody) {
@@ -133,13 +136,13 @@ function extractMessageText(payload: EvolutionWebhookBody) {
   )
 }
 
-async function upsertWhatsappSession(sessionKey: string, phone: string) {
+async function upsertWhatsappSession(sessionKey: string, jid: string) {
   const now = new Date().toISOString()
   const rawSession = await redis.get(sessionKey)
 
   if (!rawSession) {
     const newSession: WhatsappSession = {
-      phone,
+      jid,
       createdAt: now,
       updatedAt: now,
       messageCount: 1,
@@ -170,15 +173,38 @@ async function upsertWhatsappSession(sessionKey: string, phone: string) {
   return updatedSession
 }
 
-async function scheduleMessagesProcessing(phone: string) {
-  const jobId = `process-${phone}`
+async function upsertLeadIfQualified(
+  jid: string,
+  state: ConversationState,
+  existingLeadId: string | undefined,
+): Promise<string | undefined> {
+  if (state.step !== 'QUALIFIED') return existingLeadId
+
+  const { address, size, serviceType } = state.data
+  if (!address || !size || !serviceType) return existingLeadId
+
+  const [lead] = await db
+    .insert(leads)
+    .values({ jid, address, size, serviceType, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: leads.jid,
+      set: { address, size, serviceType, updatedAt: new Date() },
+    })
+    .returning({ id: leads.id })
+
+  console.log(`[service] lead upserted: ${lead.id} for ${jid}`)
+  return lead.id
+}
+
+async function scheduleMessagesProcessing(jid: string) {
+  const jobId = `process-${jid}`
   const existingJob = await messagesQueue.getJob(jobId)
   if (existingJob) {
     await existingJob.remove()
   }
   await messagesQueue.add(
     'process-whatsapp-messages',
-    { phone },
+    { jid },
     {
       jobId,
       delay: MESSAGE_COOLDOWN_MS,

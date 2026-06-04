@@ -9,5 +9,20 @@
       "tag": "0000_burly_valeria_richards",
       "breakpoints": true
     }
+    ,
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780580000000,
+      "tag": "0001_rename_conversations_phone_to_jid",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780581000000,
+      "tag": "0002_leads_add_bot_fields",
+      "breakpoints": true
+    }
   ]
 }

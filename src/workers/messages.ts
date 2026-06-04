@@ -5,9 +5,9 @@ import { queueConnection } from '../lib/queue/connection'
 new Worker(
   'whatsapp-messages',
   async (job) => {
-    const { phone } = job.data as { phone: string }
+    const { jid } = job.data as { jid: string }
 
-    await processBufferedEvolutionMessages(phone)
+    await processBufferedEvolutionMessages(jid)
   },
   {
     connection: queueConnection,

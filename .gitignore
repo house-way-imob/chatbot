@@ -24,6 +24,8 @@ src/generated
 .zed/
 *.pem
 
+claude.md
+
 # debug
 npm-debug.log*
 yarn-debug.log*
