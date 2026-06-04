@@ -1,12 +1,12 @@
-import { randomUUIDv7 } from 'bun'
-import { relations } from 'drizzle-orm'
+import { randomUUID } from 'node:crypto'
+
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import { appointments } from './appointments'
 
 export const customers = pgTable('customers', {
   id: text()
     .primaryKey()
-    .$defaultFn(() => randomUUIDv7()),
+    .$defaultFn(() => randomUUID()),
   phone: text().notNull(),
   name: text().notNull(),
   company: text().notNull(),
