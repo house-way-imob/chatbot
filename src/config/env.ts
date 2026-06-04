@@ -9,7 +9,7 @@ const envSchema = z.object({
   EVOLUTION_API_URL: z.string().url(),
   EVOLUTION_API_KEY: z.string().min(1),
   EVOLUTION_INSTANCE_NAME: z.string().min(1),
-  GROQ_API_KEY: z.string().optional(),
+  ALIBABA_API_KEY: z.string().optional(),
   GOOGLE_MAPS_API_KEY: z.string().optional(),
   PORT: z.coerce.number().default(3333),
   NODE_ENV: z
