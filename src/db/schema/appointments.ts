@@ -10,10 +10,14 @@ export const appointments = pgTable('appointments', {
     .$defaultFn(() => randomUUIDv7()),
   customerId: text()
     .notNull()
-    .references(() => customers.id, { onDelete: 'cascade' }),
+    .references(() => customers.id, {
+      onDelete: 'cascade',
+    }),
   photographerId: text()
     .notNull()
-    .references(() => photographers.id, { onDelete: 'cascade' }),
+    .references(() => photographers.id, {
+      onDelete: 'cascade',
+    }),
   originalAddress: text().notNull(),
   formattedAddress: text(),
   latitude: doublePrecision(),
