@@ -37,13 +37,17 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+<<<<<<< HEAD
 >>>>>>> 23681d7ffd3ead0af84cc8ec1833061a44c62b39
+=======
+>>>>>>> origin/dev
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 # Testing
 coverage
@@ -70,6 +74,8 @@ yarn-error.log*
 .DS_Store
 *.pem
 =======
+=======
+>>>>>>> origin/dev
 # vercel
 .vercel
 
@@ -80,4 +86,7 @@ yarn-error.log*
 **/*.log
 package-lock.json
 **/*.bun
+<<<<<<< HEAD
 >>>>>>> 23681d7ffd3ead0af84cc8ec1833061a44c62b39
+=======
+>>>>>>> origin/dev

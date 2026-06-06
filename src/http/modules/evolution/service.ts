@@ -208,6 +208,9 @@ async function upsertLeadIfQualified(
   state: ConversationState,
   existingLeadId: string | undefined,
 ): Promise<string | undefined> {
+
+  if (state.step !== 'QUALIFIED') return existingLeadId
+
   const { address, size, serviceType } = state.data
   if (!address || !size || !serviceType) return existingLeadId
 
