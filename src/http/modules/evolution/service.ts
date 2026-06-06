@@ -6,6 +6,7 @@ import { conversations, leads } from '../../../db/schema'
 import { classifyIntent } from '../../../lib/ai/classify-intent'
 import { FAQ_ANSWERS } from '../../../lib/ai/prompts'
 import { sendMessage } from '../../../lib/evolution'
+import { geocodeAddress } from '../../../lib/maps/geocode'
 import { messagesQueue } from '../../../lib/queue/messages'
 import { redis } from '../../../lib/redis/client'
 import type {
@@ -214,16 +215,29 @@ async function upsertLeadIfQualified(
   const { address, size, serviceType } = state.data
   if (!address || !size || !serviceType) return existingLeadId
 
+  const geo = await geocodeAddress(address).catch((err) => {
+    console.warn('[service] geocode failed:', err instanceof Error ? err.message : err)
+    return null
+  })
+
+  const values = {
+    jid,
+    address,
+    size,
+    serviceType,
+    formattedAddress: geo?.formattedAddress ?? null,
+    latitude: geo?.latitude ?? null,
+    longitude: geo?.longitude ?? null,
+    updatedAt: new Date(),
+  }
+
   const [lead] = await db
     .insert(leads)
-    .values({ jid, address, size, serviceType, updatedAt: new Date() })
-    .onConflictDoUpdate({
-      target: leads.jid,
-      set: { address, size, serviceType, updatedAt: new Date() },
-    })
+    .values(values)
+    .onConflictDoUpdate({ target: leads.jid, set: values })
     .returning({ id: leads.id })
 
-  console.log(`[service] lead upserted: ${lead.id} for ${jid}`)
+  console.log(`[service] lead upserted: ${lead.id} | geo: ${geo ? `${geo.latitude},${geo.longitude}` : 'none'}`)
   return lead.id
 }
 
