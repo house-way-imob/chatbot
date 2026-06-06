@@ -1,0 +1,159 @@
+{
+  "id": "b4f2e3a5-e6d7-8901-bcde-f12345678901",
+  "prevId": "a3e1f2b4-d5c6-7890-abcd-ef1234567890",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.customers": {
+      "name": "customers",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "text", "primaryKey": true, "notNull": true },
+        "phone": { "name": "phone", "type": "text", "primaryKey": false, "notNull": true },
+        "name": { "name": "name", "type": "text", "primaryKey": false, "notNull": true },
+        "company": { "name": "company", "type": "text", "primaryKey": false, "notNull": true }
+      },
+      "indexes": {}, "foreignKeys": {}, "compositePrimaryKeys": {}, "uniqueConstraints": {},
+      "policies": {}, "checkConstraints": {}, "isRLSEnabled": false
+    },
+    "public.leads": {
+      "name": "leads",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "text", "primaryKey": true, "notNull": true },
+        "jid": { "name": "jid", "type": "text", "primaryKey": false, "notNull": true },
+        "nome": { "name": "nome", "type": "text", "primaryKey": false, "notNull": false },
+        "address": { "name": "address", "type": "text", "primaryKey": false, "notNull": false },
+        "size": { "name": "size", "type": "text", "primaryKey": false, "notNull": false },
+        "serviceType": { "name": "serviceType", "type": "text", "primaryKey": false, "notNull": false },
+        "createdAt": { "name": "createdAt", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" },
+        "updatedAt": { "name": "updatedAt", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "leads_jid_unique": { "name": "leads_jid_unique", "nullsNotDistinct": false, "columns": ["jid"] }
+      },
+      "policies": {}, "checkConstraints": {}, "isRLSEnabled": false
+    },
+    "public.photographers": {
+      "name": "photographers",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "text", "primaryKey": true, "notNull": true },
+        "name": { "name": "name", "type": "text", "primaryKey": false, "notNull": true },
+        "phone": { "name": "phone", "type": "text", "primaryKey": false, "notNull": true },
+        "email": { "name": "email", "type": "text", "primaryKey": false, "notNull": false },
+        "active": { "name": "active", "type": "boolean", "primaryKey": false, "notNull": true, "default": true },
+        "createdAt": { "name": "createdAt", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" },
+        "updatedAt": { "name": "updatedAt", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "photographers_phone_unique": { "name": "photographers_phone_unique", "nullsNotDistinct": false, "columns": ["phone"] }
+      },
+      "policies": {}, "checkConstraints": {}, "isRLSEnabled": false
+    },
+    "public.conversations": {
+      "name": "conversations",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "text", "primaryKey": true, "notNull": true },
+        "jid": { "name": "jid", "type": "text", "primaryKey": false, "notNull": true },
+        "step": { "name": "step", "type": "text", "primaryKey": false, "notNull": true, "default": "'START'" },
+        "state": { "name": "state", "type": "jsonb", "primaryKey": false, "notNull": true, "default": "'{}'::jsonb" },
+        "lastMessageAt": { "name": "lastMessageAt", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" },
+        "leadId": { "name": "leadId", "type": "text", "primaryKey": false, "notNull": false },
+        "createdAt": { "name": "createdAt", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" },
+        "updatedAt": { "name": "updatedAt", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "conversations_leadId_leads_id_fk": {
+          "name": "conversations_leadId_leads_id_fk",
+          "tableFrom": "conversations",
+          "tableTo": "leads",
+          "columnsFrom": ["leadId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "conversations_jid_unique": { "name": "conversations_jid_unique", "nullsNotDistinct": false, "columns": ["jid"] }
+      },
+      "policies": {}, "checkConstraints": {}, "isRLSEnabled": false
+    },
+    "public.bookings": {
+      "name": "bookings",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "text", "primaryKey": true, "notNull": true },
+        "leadId": { "name": "leadId", "type": "text", "primaryKey": false, "notNull": true },
+        "photographerId": { "name": "photographerId", "type": "text", "primaryKey": false, "notNull": true },
+        "startsAt": { "name": "startsAt", "type": "timestamp", "primaryKey": false, "notNull": true },
+        "endsAt": { "name": "endsAt", "type": "timestamp", "primaryKey": false, "notNull": true },
+        "propertyAddress": { "name": "propertyAddress", "type": "text", "primaryKey": false, "notNull": true },
+        "lat": { "name": "lat", "type": "double precision", "primaryKey": false, "notNull": true },
+        "lng": { "name": "lng", "type": "double precision", "primaryKey": false, "notNull": true },
+        "serviceType": { "name": "serviceType", "type": "text", "primaryKey": false, "notNull": true },
+        "status": { "name": "status", "type": "text", "primaryKey": false, "notNull": true, "default": "'PENDING'" },
+        "createdAt": { "name": "createdAt", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" },
+        "updatedAt": { "name": "updatedAt", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "bookings_leadId_leads_id_fk": {
+          "name": "bookings_leadId_leads_id_fk", "tableFrom": "bookings", "tableTo": "leads",
+          "columnsFrom": ["leadId"], "columnsTo": ["id"], "onDelete": "no action", "onUpdate": "no action"
+        },
+        "bookings_photographerId_photographers_id_fk": {
+          "name": "bookings_photographerId_photographers_id_fk", "tableFrom": "bookings", "tableTo": "photographers",
+          "columnsFrom": ["photographerId"], "columnsTo": ["id"], "onDelete": "no action", "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {}, "checkConstraints": {}, "isRLSEnabled": false
+    },
+    "public.travel_time_cache": {
+      "name": "travel_time_cache",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "text", "primaryKey": true, "notNull": true },
+        "originLat": { "name": "originLat", "type": "double precision", "primaryKey": false, "notNull": true },
+        "originLng": { "name": "originLng", "type": "double precision", "primaryKey": false, "notNull": true },
+        "destLat": { "name": "destLat", "type": "double precision", "primaryKey": false, "notNull": true },
+        "destLng": { "name": "destLng", "type": "double precision", "primaryKey": false, "notNull": true },
+        "durationSeconds": { "name": "durationSeconds", "type": "integer", "primaryKey": false, "notNull": true },
+        "expiresAt": { "name": "expiresAt", "type": "timestamp", "primaryKey": false, "notNull": true },
+        "createdAt": { "name": "createdAt", "type": "timestamp", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {
+        "travel_time_cache_coords_idx": {
+          "name": "travel_time_cache_coords_idx",
+          "columns": [
+            { "expression": "originLat", "isExpression": false, "asc": true, "nulls": "last" },
+            { "expression": "originLng", "isExpression": false, "asc": true, "nulls": "last" },
+            { "expression": "destLat", "isExpression": false, "asc": true, "nulls": "last" },
+            { "expression": "destLng", "isExpression": false, "asc": true, "nulls": "last" }
+          ],
+          "isUnique": true, "concurrently": false, "method": "btree", "with": {}
+        }
+      },
+      "foreignKeys": {}, "compositePrimaryKeys": {}, "uniqueConstraints": {},
+      "policies": {}, "checkConstraints": {}, "isRLSEnabled": false
+    }
+  },
+  "enums": {}, "schemas": {}, "sequences": {}, "roles": {}, "policies": {}, "views": {},
+  "_meta": {
+    "columns": {
+      "\"public\".\"leads\".\"jid\"": "\"public\".\"leads\".\"telefone\""
+    },
+    "schemas": {}, "tables": {}
+  }
+}

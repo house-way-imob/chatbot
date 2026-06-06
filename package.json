@@ -1,25 +1,32 @@
 {
-  "name": "agencia-fotos-bot",
-  "private": true,
-  
+  "name": "api-housewayimob",
+  "version": "1.0.50",
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bun run --watch src/http/app.ts",
+    "worker:messages": "bun run --watch src/workers/messages.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check ."
+  },
+  "dependencies": {
+    "@ai-sdk/alibaba": "^1.0.25",
+    "ai": "^6.0.195",
+    "bullmq": "^5.78.0",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "elysia": "^1.4.28",
+    "pg": "^8.21.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "prettier": "^3.7.4",
-    "turbo": "^2.9.16",
-    "typescript": "5.9.2"
+    "@biomejs/biome": "latest",
+    "@types/pg": "^8.20.0",
+    "bun-types": "latest",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.22.4"
   },
-  "engines": {
-    "node": ">=18"
-  },
-  "packageManager": "npm@10.9.2",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  "module": "src/index.js"
 }

@@ -5,13 +5,46 @@ node_modules
 .pnp
 .pnp.js
 
-# Local env files
+# dependencies
+node_modules
+/.pnp
+.pnp.js
+
+# generated
+apps/api/src/generated
+src/generated
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+.zed/
+*.pem
+
+claude.md
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+>>>>>>> 23681d7ffd3ead0af84cc8ec1833061a44c62b39
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+<<<<<<< HEAD
 # Testing
 coverage
 
@@ -36,3 +69,15 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+=======
+# vercel
+.vercel
+
+**/*.trace
+**/*.zip
+**/*.tar.gz
+**/*.tgz
+**/*.log
+package-lock.json
+**/*.bun
+>>>>>>> 23681d7ffd3ead0af84cc8ec1833061a44c62b39
