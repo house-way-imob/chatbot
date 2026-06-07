@@ -3,6 +3,7 @@ import { initialState, processMessage } from '../../../conversations/machine'
 import type { ConversationState } from '../../../conversations/types'
 import { db } from '../../../db'
 import { conversations, leads } from '../../../db/schema'
+import { answerFaq } from '../../../lib/ai/answer-faq'
 import { classifyIntent } from '../../../lib/ai/classify-intent'
 import { FAQ_ANSWERS } from '../../../lib/ai/prompts'
 import { sendMessage } from '../../../lib/evolution'
@@ -93,7 +94,7 @@ export async function processEvolutionMessages({
     console.log(`[worker] intent for "${line.slice(0, 40)}": ${intent}`)
 
     if (intent === 'faq') {
-      lastResponse = resolveFaq(line)
+      lastResponse = await resolveFaq(line)
       continue
     }
 
@@ -241,7 +242,7 @@ async function upsertLeadIfQualified(
   return lead.id
 }
 
-function resolveFaq(message: string): string {
+async function resolveFaq(message: string): Promise<string> {
   const m = message.toLowerCase()
   if (m.includes('preço') || m.includes('preco') || m.includes('valor') || m.includes('custa') || m.includes('quanto'))
     return FAQ_ANSWERS.preco
@@ -253,10 +254,9 @@ function resolveFaq(message: string): string {
     return FAQ_ANSWERS.cancelamento
   if (m.includes('drone') || m.includes('chuva') || m.includes('voo') || m.includes('tempo'))
     return FAQ_ANSWERS.drone
-  return (
-    'Boa pergunta! 😊 Para mais detalhes, nosso atendente pode te ajudar melhor.\n\n' +
-    'Quer continuar o agendamento ou prefere falar com um atendente?'
-  )
+
+  // Nenhuma resposta fixa bateu — deixa a IA responder com contexto da agência
+  return answerFaq(message)
 }
 
 async function scheduleMessagesProcessing(jid: string) {
