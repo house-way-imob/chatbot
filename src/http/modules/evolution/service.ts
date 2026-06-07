@@ -3,7 +3,11 @@ import { initialState, processMessage } from '../../../conversations/machine'
 import type { ConversationState } from '../../../conversations/types'
 import { db } from '../../../db'
 import { conversations, leads } from '../../../db/schema'
+import { answerFaq } from '../../../lib/ai/answer-faq'
+import { classifyIntent } from '../../../lib/ai/classify-intent'
+import { FAQ_ANSWERS } from '../../../lib/ai/prompts'
 import { sendMessage } from '../../../lib/evolution'
+import { geocodeAddress } from '../../../lib/maps/geocode'
 import { messagesQueue } from '../../../lib/queue/messages'
 import { redis } from '../../../lib/redis/client'
 import type {
@@ -15,6 +19,7 @@ import type {
 
 const SESSION_TTL_SECONDS = 60 * 60
 const MESSAGE_COOLDOWN_MS = 10 * 1000
+const STARTUP_TIMESTAMP_S = Math.floor(Date.now() / 1000)
 
 export async function handleEvolutionWebhook(
   payload: EvolutionWebhookBody,
@@ -24,6 +29,12 @@ export async function handleEvolutionWebhook(
   }
 
   if (isGroupMessage(payload)) {
+    return { success: true }
+  }
+
+  const msgTs = (payload.data as Record<string, unknown>)?.messageTimestamp as number | undefined
+  if (msgTs && msgTs < STARTUP_TIMESTAMP_S - 30) {
+    console.log(`[service] ignoring old message (ts=${msgTs}, startup=${STARTUP_TIMESTAMP_S})`)
     return { success: true }
   }
 
@@ -79,7 +90,28 @@ export async function processEvolutionMessages({
   let lastResponse = ''
 
   for (const line of lines) {
-    const result = processMessage(currentState, line)
+    const { intent, extractedData } = await classifyIntent(line)
+    console.log(`[worker] intent for "${line.slice(0, 40)}": ${intent}`)
+
+    if (intent === 'faq') {
+      lastResponse = await resolveFaq(line)
+      continue
+    }
+
+    if (intent === 'off_topic') {
+      // Para usuários em fluxo ativo, trata off_topic como qualification
+      // para não travar a conversa em saudações simples ("oi", "olá", etc.)
+      if (currentState.step === 'START' || currentState.step === 'CONFIRMED') {
+        const result = processMessage(currentState, line)
+        currentState = result.newState
+        lastResponse = result.response
+      }
+      continue
+    }
+
+    // intent === 'qualification': injeta dados extraídos pelo LLM antes de processar
+    const enrichedLine = extractedData.address ?? extractedData.size ?? line
+    const result = processMessage(currentState, enrichedLine)
     currentState = result.newState
     lastResponse = result.response
   }
@@ -178,22 +210,53 @@ async function upsertLeadIfQualified(
   state: ConversationState,
   existingLeadId: string | undefined,
 ): Promise<string | undefined> {
+
   if (state.step !== 'QUALIFIED') return existingLeadId
 
   const { address, size, serviceType } = state.data
   if (!address || !size || !serviceType) return existingLeadId
 
+  const geo = await geocodeAddress(address).catch((err) => {
+    console.warn('[service] geocode failed:', err instanceof Error ? err.message : err)
+    return null
+  })
+
+  const values = {
+    jid,
+    address,
+    size,
+    serviceType,
+    formattedAddress: geo?.formattedAddress ?? null,
+    latitude: geo?.latitude ?? null,
+    longitude: geo?.longitude ?? null,
+    updatedAt: new Date(),
+  }
+
   const [lead] = await db
     .insert(leads)
-    .values({ jid, address, size, serviceType, updatedAt: new Date() })
-    .onConflictDoUpdate({
-      target: leads.jid,
-      set: { address, size, serviceType, updatedAt: new Date() },
-    })
+    .values(values)
+    .onConflictDoUpdate({ target: leads.jid, set: values })
     .returning({ id: leads.id })
 
-  console.log(`[service] lead upserted: ${lead.id} for ${jid}`)
+  console.log(`[service] lead upserted: ${lead.id} | geo: ${geo ? `${geo.latitude},${geo.longitude}` : 'none'}`)
   return lead.id
+}
+
+async function resolveFaq(message: string): Promise<string> {
+  const m = message.toLowerCase()
+  if (m.includes('preço') || m.includes('preco') || m.includes('valor') || m.includes('custa') || m.includes('quanto'))
+    return FAQ_ANSWERS.preco
+  if (m.includes('prazo') || m.includes('entrega') || m.includes('quando') || m.includes('demora'))
+    return FAQ_ANSWERS.prazo
+  if (m.includes('receb') || m.includes('link') || m.includes('como fica') || m.includes('formato'))
+    return FAQ_ANSWERS.entrega
+  if (m.includes('cancel') || m.includes('remarc') || m.includes('desist'))
+    return FAQ_ANSWERS.cancelamento
+  if (m.includes('drone') || m.includes('chuva') || m.includes('voo') || m.includes('tempo'))
+    return FAQ_ANSWERS.drone
+
+  // Nenhuma resposta fixa bateu — deixa a IA responder com contexto da agência
+  return answerFaq(message)
 }
 
 async function scheduleMessagesProcessing(jid: string) {
